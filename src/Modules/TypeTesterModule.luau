@@ -38,11 +38,7 @@ function TypeTester:GenerateWords()
         table.insert(self.currentWords, randomWord)
         self.currentWordsLength += string.len(randomWord)
 
-        if i == 1 then
-            self.fullString = self.fullString..randomWord
-        else
-            self.fullString = self.fullString.." "..randomWord  
-        end
+        self.fullString = self.fullString..(i == 1 and "" or " ")..randomWord  
 
         for _, letter in randomWord:split("") do
             table.insert(self.currentLetters, letter)
@@ -51,7 +47,7 @@ function TypeTester:GenerateWords()
     end
 end
 
-function TypeTester:BeginCountdown()
+function TypeTester:BeginTimer()
     self.timer = task.spawn(function()
         for i = 1, self.timerAmount do
             task.wait(1)
@@ -65,6 +61,7 @@ end
 
 function TypeTester:StartSession()
     self.inSession = true
+    self:BeginTimer();
 end
 
 function TypeTester:EndSession()
@@ -79,7 +76,6 @@ end
 function TypeTester:Init()
     self:GenerateWords()
     self:ApplyText(self.fullString);
-    print(self.fullString)
 
     UserInputService.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.Keyboard then
@@ -87,7 +83,6 @@ function TypeTester:Init()
                 self:StartSession();
             else
 
-			end
 		end
 	end)
 end
