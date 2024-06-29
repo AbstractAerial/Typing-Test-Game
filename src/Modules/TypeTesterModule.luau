@@ -13,8 +13,12 @@ function TypeTester.new(UI)
     
     self.currentWords = {} 
     self.currentLetters = {}
+    self.fullString = ""
     self.currentWordsLength = 0
 
+    self.UI = UI
+
+    --// <font color=""></font>
     return self
 end
 
@@ -24,7 +28,7 @@ function TypeTester:SetTimer(n : number)
 end
 
 function TypeTester:SetWordsAmount(n : number)
-    self.wordsAmount = 30
+    self.wordsAmount = n
 end
 
 function TypeTester:GenerateWords()
@@ -33,6 +37,12 @@ function TypeTester:GenerateWords()
         
         table.insert(self.currentWords, randomWord)
         self.currentWordsLength += string.len(randomWord)
+
+        if i == 1 then
+            self.fullString = self.fullString..randomWord
+        else
+            self.fullString = self.fullString.." "..randomWord  
+        end
 
         for _, letter in randomWord:split("") do
             table.insert(self.currentLetters, letter)
@@ -46,6 +56,7 @@ function TypeTester:BeginCountdown()
         for i = 1, self.timerAmount do
             task.wait(1)
         end
+        
         self:EndSession();
         self.timer = nil;
     end)
@@ -61,10 +72,15 @@ function TypeTester:EndSession()
 end
 
 function TypeTester:ApplyText(t : string)
-    
+    local textLabel = self.UI.Background.Container.TextArea
+    textLabel.Text = t
 end
 
 function TypeTester:Init()
+    self:GenerateWords()
+    self:ApplyText(self.fullString);
+    print(self.fullString)
+
     UserInputService.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.Keyboard then
 			if not self.inSession then
