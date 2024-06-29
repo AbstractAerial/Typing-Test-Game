@@ -8,6 +8,13 @@ function TypeTester.new(UI)
 
 	self.inSession = false
     self.timerAmount = 15
+    self.wordsAmount = 30
+    self.wordsPool = {"apple", "run", "banana", "happy", "cherry", "jump", "date", "blue", "elderberry", "swim", "fig", "bright", "grape", "dance", "honeydew", "sad", "kiwi", "laugh", "lemon", "green", "mango", "build", "nectarine", "quick", "orange", "sing", "papaya", "red", "quince", "write", "raspberry", "slow", "strawberry", "paint", "tangerine", "angry", "ugli", "climb", "vanilla", "brave","watermelon", "think", "xigua", "strong", "yam", "fly", "zucchini", "smart", "avocado", "read" }
+    
+    self.currentWords = {} 
+    self.currentLetters = {}
+    self.currentWordsLength = 0
+
     return self
 end
 
@@ -16,7 +23,22 @@ function TypeTester:SetTimer(n : number)
     self.timerAmount = n
 end
 
-function  TypeTester:GenerateWords()
+function TypeTester:SetWordsAmount(n : number)
+    self.wordsAmount = 30
+end
+
+function TypeTester:GenerateWords()
+    for i = 1, self.wordsAmount do
+        local randomWord = self.wordsPool[math.random(#self.wordsPool)]
+        
+        table.insert(self.currentWords, randomWord)
+        self.currentWordsLength += string.len(randomWord)
+
+        for _, letter in randomWord:split("") do
+            table.insert(self.currentLetters, letter)
+        end
+        table.insert(self.currentLetters, " ")
+    end
 end
 
 function TypeTester:BeginCountdown()
@@ -28,7 +50,6 @@ function TypeTester:BeginCountdown()
         self.timer = nil;
     end)
 
-
 end
 
 function TypeTester:StartSession()
@@ -39,11 +60,17 @@ function TypeTester:EndSession()
     self.inSession = false
 end
 
+function TypeTester:ApplyText(t : string)
+    
+end
+
 function TypeTester:Init()
     UserInputService.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.Keyboard then
 			if not self.inSession then
                 self:StartSession();
+            else
+
 			end
 		end
 	end)
@@ -53,7 +80,7 @@ function TypeTester:ShowResults()
     
 end
 
-function  TypeTester:Destroy()
+function TypeTester:Destroy()
     
 end
 
