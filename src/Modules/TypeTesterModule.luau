@@ -6,14 +6,18 @@ TypeTester.__index = TypeTester
 function TypeTester.new(UI)
     local self = setmetatable({}, TypeTester)
 
+    self.wordsPool = {"apple", "run", "banana", "happy", "cherry", "jump", "date", "blue", "elderberry", "swim", "fig", "bright", "grape", "dance", "honeydew", "sad", "kiwi", "laugh", "lemon", "green", "mango", "build", "nectarine", "quick", "orange", "sing", "papaya", "red", "quince", "write", "raspberry", "slow", "strawberry", "paint", "tangerine", "angry", "ugli", "climb", "vanilla", "brave","watermelon", "think", "xigua", "strong", "yam", "fly", "zucchini", "smart", "avocado", "read" }
 	self.inSession = false
+
     self.timerAmount = 15
     self.wordsAmount = 30
-    self.wordsPool = {"apple", "run", "banana", "happy", "cherry", "jump", "date", "blue", "elderberry", "swim", "fig", "bright", "grape", "dance", "honeydew", "sad", "kiwi", "laugh", "lemon", "green", "mango", "build", "nectarine", "quick", "orange", "sing", "papaya", "red", "quince", "write", "raspberry", "slow", "strawberry", "paint", "tangerine", "angry", "ugli", "climb", "vanilla", "brave","watermelon", "think", "xigua", "strong", "yam", "fly", "zucchini", "smart", "avocado", "read" }
     
     self.currentWords = {} 
     self.currentLetters = {}
+
     self.currentIndex = 0
+    self.wrongIndexes = {}
+
     self.fullString = ""
     self.currentWordsLength = 0
 
@@ -74,27 +78,35 @@ function TypeTester:ApplyText(t : string)
 end
 
 function TypeTester:GetColoredString()
-    local colored, normal, final = "", "", ""
+    local currentWords = ""
 
     for i = 1, self.currentIndex do
         local letter = self.currentLetters[i]
-        colored = colored..letter
-    end
 
-    final = '<font color="#FFFFFF">'..colored..'</font>'
+        if table.find(self.wrongIndexes, i) then
+           currentWords = currentWords..'<font color="#FF0000">'..letter..'</font>'
+        else
+            currentWords = currentWords..'<font color="#FFFFFF">'..letter..'</font>'
+        end
+    end
 
     for i = self.currentIndex + 1, #self.currentLetters do
         local letter = self.currentLetters[i]
-        normal = normal..letter
+        currentWords = currentWords..'<font color="#797979">'..letter..'</font>'
     end
 
-    return final..normal
+    return currentWords
 end
 
 function TypeTester:ProcessKey(key : string)
-    if self.currentLetters[self.currentIndex + 1] == key then
-        self.currentIndex += 1
+    local nextIndex = self.currentIndex + 1 
+    local isCorrect = self.currentLetters[nextIndex] == key
+
+    if not isCorrect then
+        table.insert(self.wrongIndexes,  nextIndex)
     end
+
+    self.currentIndex += 1
 
     local text = self:GetColoredString()
     self:ApplyText(text);
@@ -111,6 +123,16 @@ function TypeTester:Init()
             end
 
             local key = UserInputService:GetStringForKeyCode(input.KeyCode)
+            
+            if input.KeyCode == Enum.KeyCode.Backspace then
+                key = "backspace"
+            end
+
+            if key == " " and input.KeyCode == Enum.KeyCode.Space then
+                print('invalid key')
+                return
+            end
+
             self:ProcessKey(key:lower());
 		end
 	end)
