@@ -12,17 +12,21 @@ function TypeTester.new(UI)
     self.timerAmount = 15
     self.wordsAmount = 30
     
-    self.currentWords = {} 
-    self.currentLetters = {}
+    self._words = {}
+    self._wrongKeys = {}
 
-    self.currentIndex = 0
-    self.wrongIndexes = {}
+    self._currentWord = nil
+    self._currentLetters = {}
+    self._writtenLetters = {}
 
-    self.fullString = ""
-    self.currentWordsLength = 0
+    self._currentWordIndex = 1
+    self._currentLetterIndex = 0
+
+    self._currentFullString = ""
+    self._fullString = ""
+    self._wordsLength = 0
 
     self.UI = UI
-
     --// <font color=""></font>
     return self
 end
@@ -36,18 +40,28 @@ function TypeTester:SetWordsAmount(n : number)
     self.wordsAmount = n
 end
 
-function TypeTester:GenerateWords()
-    for i = 1, self.wordsAmount do
-        local randomWord = self.wordsPool[math.random(#self.wordsPool)]
-        
-        table.insert(self.currentWords, randomWord)
-        self.currentWordsLength += string.len(randomWord)
-        self.fullString = self.fullString..(i == 1 and "" or " ")..randomWord  
+function TypeTester:SplitCurrentWord()
+    self._currentLetters = {}
 
-        for _, letter in randomWord:split("") do
-            table.insert(self.currentLetters, letter)
+    for _, letter in self._currentWord:split("") do
+        table.insert(self._currentLetters, letter)
+    end
+end
+
+function TypeTester:GenerateWords()
+    for index = 1, self.wordsAmount do
+        local randomWord = self.wordsPool[math.random(#self.wordsPool)]
+        table.insert(self._words, randomWord)
+
+        if index == 1 then
+            self._fullString = self._fullString..randomWord
+            self._currentWord = randomWord
+            self:SplitCurrentWord();
+        else
+            self._fullString = self._fullString.." "..randomWord
         end
-        table.insert(self.currentLetters, " ")
+
+        self._wordsLength += randomWord:len();
     end
 end
 
@@ -78,35 +92,38 @@ function TypeTester:ApplyText(t : string)
 end
 
 function TypeTester:GetColoredString()
-    local currentWords = ""
+    local currentWord_colored = ""
+    local final = ""
 
-    for i = 1, self.currentIndex do
-        local letter = self.currentLetters[i]
+    for index, letter in ipairs(self._writtenLetters) do
+        if table.find(self._wrongKeys, index) then
+            currentWord_colored = currentWord_colored..'<font color="#FF0000">'..letter..'</font>' --// mark red
+         else
+            currentWord_colored = currentWord_colored..'<font color="#FFFFFF">'..letter..'</font>' --// mark white
+         end
+    end
 
-        if table.find(self.wrongIndexes, i) then
-           currentWords = currentWords..'<font color="#FF0000">'..letter..'</font>'
-        else
-            currentWords = currentWords..'<font color="#FFFFFF">'..letter..'</font>'
+    for index, word in ipairs(self._words) do
+        if index ~= self._currentWordIndex then
+            continue
         end
     end
 
-    for i = self.currentIndex + 1, #self.currentLetters do
-        local letter = self.currentLetters[i]
-        currentWords = currentWords..'<font color="#797979">'..letter..'</font>'
+    for i = self._currentIndex + 1, #self.lookupLetters do
+        local letter = self.lookupLetters[i]
+        currentWord_colored = currentWord_colored..'<font color="#797979">'..letter..'</font>' --// mark gray
     end
 
-    return currentWords
+    return currentWord_colored
 end
 
 function TypeTester:ProcessKey(key : string)
-    local nextIndex = self.currentIndex + 1 
-    local isCorrect = self.currentLetters[nextIndex] == key
+    self._currentLetterIndex += 1
+    table.insert(self._writtenLetters, key)
 
-    if not isCorrect then
-        table.insert(self.wrongIndexes,  nextIndex)
-    end
-
-    self.currentIndex += 1
+    if self._currentLetters[self._currentLetterIndex] ~= key then
+        table.insert(self._wrongKeys, self._currentLetterIndex);
+    end 
 
     local text = self:GetColoredString()
     self:ApplyText(text);
@@ -116,24 +133,23 @@ function TypeTester:Init()
     self:GenerateWords()
     self:ApplyText(self.fullString);
 
-    UserInputService.InputBegan:Connect(function(input)
+    self.connection = UserInputService.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.Keyboard then
 			if not self.inSession then
                 self:StartSession();
             end
 
-            local key = UserInputService:GetStringForKeyCode(input.KeyCode)
-            
+            local key = UserInputService:GetStringForKeyCode(input.KeyCode):lower();
+
             if input.KeyCode == Enum.KeyCode.Backspace then
                 key = "backspace"
             end
 
-            if key == " " and input.KeyCode == Enum.KeyCode.Space then
-                print('invalid key')
+            if key == " " and input.KeyCode ~= Enum.KeyCode.Space then
                 return
             end
 
-            self:ProcessKey(key:lower());
+            self:ProcessKey(key);
 		end
 	end)
 end
