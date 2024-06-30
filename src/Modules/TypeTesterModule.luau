@@ -13,6 +13,7 @@ function TypeTester.new(UI)
     
     self.currentWords = {} 
     self.currentLetters = {}
+    self.currentIndex = 0
     self.fullString = ""
     self.currentWordsLength = 0
 
@@ -37,7 +38,6 @@ function TypeTester:GenerateWords()
         
         table.insert(self.currentWords, randomWord)
         self.currentWordsLength += string.len(randomWord)
-
         self.fullString = self.fullString..(i == 1 and "" or " ")..randomWord  
 
         for _, letter in randomWord:split("") do
@@ -73,6 +73,33 @@ function TypeTester:ApplyText(t : string)
     textLabel.Text = t
 end
 
+function TypeTester:GetColoredString()
+    local colored, normal, final = "", "", ""
+
+    for i = 1, self.currentIndex do
+        local letter = self.currentLetters[i]
+        colored = colored..letter
+    end
+
+    final = '<font color="#FFFFFF">'..colored..'</font>'
+
+    for i = self.currentIndex + 1, #self.currentLetters do
+        local letter = self.currentLetters[i]
+        normal = normal..letter
+    end
+
+    return final..normal
+end
+
+function TypeTester:ProcessKey(key : string)
+    if self.currentLetters[self.currentIndex + 1] == key then
+        self.currentIndex += 1
+    end
+
+    local text = self:GetColoredString()
+    self:ApplyText(text);
+end
+
 function TypeTester:Init()
     self:GenerateWords()
     self:ApplyText(self.fullString);
@@ -81,8 +108,10 @@ function TypeTester:Init()
 		if input.UserInputType == Enum.UserInputType.Keyboard then
 			if not self.inSession then
                 self:StartSession();
-            else
+            end
 
+            local key = UserInputService:GetStringForKeyCode(input.KeyCode)
+            self:ProcessKey(key:lower());
 		end
 	end)
 end
