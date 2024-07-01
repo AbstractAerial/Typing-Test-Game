@@ -193,23 +193,28 @@ function TypeTester:Init()
     self:GenerateWords()
     self:ApplyText(self._fullString);
 
+    local function _onInput(input)
+        local key = UserInputService:GetStringForKeyCode(input.KeyCode):lower();
+
+        if not self.inSession then
+            self:StartSession();
+        end
+
+        if input.KeyCode == Enum.KeyCode.Backspace then
+            key = "Backspace"
+        elseif input.KeyCode == Enum.KeyCode.Space then
+            key = "Space"
+        elseif key == " " then
+            return
+        end
+
+        self:ProcessKey(key);
+    end
+
     self.connection = UserInputService.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.Keyboard then
-            local key = UserInputService:GetStringForKeyCode(input.KeyCode):lower();
-
-			if not self.inSession then
-                self:StartSession();
-            end
-
-            if input.KeyCode == Enum.KeyCode.Backspace then
-                key = "Backspace"
-            elseif input.KeyCode == Enum.KeyCode.Space then
-                key = "Space"
-            elseif key == " " then
-                return
-            end
-            self:ProcessKey(key);
-		end
+            _onInput(input);
+        end
 	end)
 end
 
