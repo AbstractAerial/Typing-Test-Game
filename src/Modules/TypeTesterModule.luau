@@ -131,9 +131,7 @@ function TypeTester:GetAllWordsColored()
         --// loop after this is everthing beyond what
         --// the word(s) the player has already written.
         words = words.." "..word
-        print(words)
     end
-
     words = words.." "
     
     for i = self._currentWordIndex + 1, #self._words do
@@ -145,13 +143,14 @@ function TypeTester:GetAllWordsColored()
 end
 
 function TypeTester:Backspace()
-    self._currentLetterIndex = (self._currentLetterIndex > 0) and self._currentLetterIndex-1 or 0
-
-    if table.find(self._wrongKeys, #self._writtenLetters) then
-        table.remove(self._wrongKeys, #self._writtenLetters)
+    local wrongIndex = table.find(self._wrongKeys, self._currentLetterIndex)
+    if wrongIndex then
+        table.remove(self._wrongKeys, wrongIndex)
     end
+    table.remove(self._writtenLetters, self._currentLetterIndex)
 
-    table.remove(self._writtenLetters, #self._writtenLetters)
+    self._currentLetterIndex = (self._currentLetterIndex > 0) and self._currentLetterIndex-1 or 0
+    self:_PushCurrentWordAsColored();
 end
 
 function TypeTester:Spacebar()
@@ -169,7 +168,6 @@ function TypeTester:Write(key : string)
     table.insert(self._writtenLetters, key)
 
     if self._currentLetters[self._currentLetterIndex] ~= key then
-        print("isn't key", self._currentLetters[self._currentLetterIndex], self._currentLetterIndex, key)
         table.insert(self._wrongKeys, self._currentLetterIndex);
     end
 end
@@ -207,7 +205,6 @@ function TypeTester:Init()
         elseif key == " " then
             return
         end
-
         self:ProcessKey(key);
     end
 
