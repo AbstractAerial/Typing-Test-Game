@@ -17,12 +17,13 @@ function TypeTester.new(UI)
 
     self._currentLetters = {}
     self._currentWrongKeys = {}
+    self._previousWrongKeys = {}
+    self._previousWrittenLetters = {}
     self._writtenLetters = {}
     self._coloredWords = {}
 
     self._currentWordIndex = 1
     self._currentLetterIndex = 0
-    self._completedPrevious = false
 
     self._fullString = ""
     self._wordsLength = 0
@@ -142,42 +143,55 @@ function TypeTester:GetAllWordsColored()
 end
 
 function TypeTester:Backspace()
-    if self._currentLetterIndex == 0 and type(self._completedPrevious) == "table" then
-        self._currentWordIndex -= 1
+
+    local _previousIndex = tostring(tostring(self._currentWordIndex-1))
+    local _previousWordMistakes = self._previousWrongKeys[_previousIndex]
+
+    if self._currentLetterIndex == 0 and _previousWordMistakes then
+        print("aaa", self._writtenLetters, self._previousWrongKeys)
+        --// if you're on the first letter of the word and press backspace
+        --// and you've made a mistake on the previous word
+        self._currentWordIndex -= 1 --// go back to the previous word
         self._currentWord = self._words[self._currentWordIndex]
+
+        local _previousWrittenLetters = self._previousWrittenLetters[_previousIndex]
+        print(self._previousWrittenLetters, _previousWrittenLetters)
 
         self:SplitCurrentWord();
         self._currentLetterIndex = #self._currentLetters
-
-        self._currentWrongKeys = {}
-        self._completedPrevious = nil
+        self._currentWrongKeys = _previousWordMistakes
+        self._writtenLetters = _previousWrittenLetters
         return
     end
 
-    local wrongIndex = table.find(self._currentWrongKeys, self._currentLetterIndex)
-    if wrongIndex then
-        table.remove(self._currentWrongKeys, wrongIndex)
+    local _isMistakeLetter = table.find(self._currentWrongKeys, self._currentLetterIndex)
+    if _isMistakeLetter then
+        table.remove(self._currentWrongKeys, _isMistakeLetter)
     end
-    table.remove(self._writtenLetters, self._currentLetterIndex)
 
+    table.remove(self._writtenLetters, self._currentLetterIndex)
+    print(self._writtenLetters)
     self._currentLetterIndex = (self._currentLetterIndex > 0) and self._currentLetterIndex-1 or 0
 end
 
 function TypeTester:Spacebar()
-
+    
+    local _currentWordIndex = tostring(self._currentWordIndex)
     if #self._currentWrongKeys > 0 then
-        for k, v in ipairs(self._currentWrongKeys) do
-            table.insert(self._completedPrevious, v)
-        end
+        self._previousWrongKeys[_currentWordIndex] = self._currentWrongKeys
     else
-        self._completedPrevious = nil;
+        self._previousWrongKeys[_currentWordIndex] = nil;
     end
 
+    self._previousWrittenLetters[_currentWordIndex] = self._writtenLetters --// doesnt need to be string
     self._currentLetterIndex = 0
+    
     self._currentWordIndex += 1
+    self._currentWord = self._words[self._currentWordIndex]
 
     self._writtenLetters = {}
     self._currentWrongKeys = {}
+    self:SplitCurrentWord();
 end
 
 function TypeTester:Write(key : string)
