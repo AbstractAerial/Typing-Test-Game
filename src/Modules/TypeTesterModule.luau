@@ -13,21 +13,21 @@ function TypeTester.new(UI)
     self.wordsAmount = 30
     
     self._words = {}
-    self._wrongKeys = {}
-
     self._currentWord = nil
+
     self._currentLetters = {}
+    self._currentWrongKeys = {}
     self._writtenLetters = {}
     self._coloredWords = {}
 
     self._currentWordIndex = 1
     self._currentLetterIndex = 0
+    self._completedPrevious = false
 
     self._fullString = ""
     self._wordsLength = 0
 
     self.UI = UI
-    --// <font color=""></font>
     return self
 end
 
@@ -74,7 +74,6 @@ function TypeTester:BeginTimer()
         self:EndSession();
         self.timer = nil;
     end)
-
 end
 
 function TypeTester:StartSession()
@@ -104,7 +103,7 @@ function TypeTester:_PushCurrentWordAsColored()
             continue
         end
 
-        if not table.find(self._wrongKeys, index) then
+        if not table.find(self._currentWrongKeys, index) then
             word = self._colorLetter(letter, "#FFFFFF", word)
          else
             word = self._colorLetter(letter, "#FF0000", word)
@@ -143,24 +142,42 @@ function TypeTester:GetAllWordsColored()
 end
 
 function TypeTester:Backspace()
-    local wrongIndex = table.find(self._wrongKeys, self._currentLetterIndex)
+    if self._currentLetterIndex == 0 and type(self._completedPrevious) == "table" then
+        self._currentWordIndex -= 1
+        self._currentWord = self._words[self._currentWordIndex]
+
+        self:SplitCurrentWord();
+        self._currentLetterIndex = #self._currentLetters
+
+        self._currentWrongKeys = {}
+        self._completedPrevious = nil
+        return
+    end
+
+    local wrongIndex = table.find(self._currentWrongKeys, self._currentLetterIndex)
     if wrongIndex then
-        table.remove(self._wrongKeys, wrongIndex)
+        table.remove(self._currentWrongKeys, wrongIndex)
     end
     table.remove(self._writtenLetters, self._currentLetterIndex)
 
     self._currentLetterIndex = (self._currentLetterIndex > 0) and self._currentLetterIndex-1 or 0
-    self:_PushCurrentWordAsColored();
 end
 
 function TypeTester:Spacebar()
+
+    if #self._currentWrongKeys > 0 then
+        for k, v in ipairs(self._currentWrongKeys) do
+            table.insert(self._completedPrevious, v)
+        end
+    else
+        self._completedPrevious = nil;
+    end
+
     self._currentLetterIndex = 0
     self._currentWordIndex += 1
-    self._currentWord = self._words[self._currentWordIndex]
 
     self._writtenLetters = {}
-    self._wrongKeys = {}
-    self:SplitCurrentWord();
+    self._currentWrongKeys = {}
 end
 
 function TypeTester:Write(key : string)
@@ -168,7 +185,7 @@ function TypeTester:Write(key : string)
     table.insert(self._writtenLetters, key)
 
     if self._currentLetters[self._currentLetterIndex] ~= key then
-        table.insert(self._wrongKeys, self._currentLetterIndex);
+        table.insert(self._currentWrongKeys, self._currentLetterIndex);
     end
 end
 
