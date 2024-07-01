@@ -91,84 +91,103 @@ function TypeTester:ApplyText(t : string)
     textLabel.Text = t
 end
 
-function TypeTester:GetColoredString()
-    local function _colorCurrentWord()
-        local _string = ""
+function TypeTester._colorLetter(letter : string, color, joinWith : string?)
+    return `{joinWith or ""}<font color="{color}">{letter}</font>`
+end
 
-        for index, letter in ipairs(self._currentLetters) do
-            if #self._writtenLetters < index then
-                _string = _string..'<font color="#797979">'..letter..'</font>'
-                continue
-            end
+function TypeTester:_PushCurrentWordAsColored()
+    local word : string = ""
 
-            if table.find(self._wrongKeys, index) then
-                _string = _string..'<font color="#FF0000">'..letter..'</font>' --// mark red
-             else
-                _string = _string..'<font color="#FFFFFF">'..letter..'</font>' --// mark white
-             end
+    for index, letter in ipairs(self._currentLetters) do
+        if #self._writtenLetters < index then
+            word = self._colorLetter(letter, "#797979", word)
+            continue
         end
 
-        if #self._writtenLetters > #self._currentLetters then
-            for i = #self._currentLetters + 1, #self._writtenLetters do
-                local letter = self._writtenLetters[i]
-                _string = _string..'<font color="#FF0000">'..letter..'</font>' --// mark red
-            end
-        end
-
-        return _string
+        if not table.find(self._wrongKeys, index) then
+            word = self._colorLetter(letter, "#FFFFFF", word)
+         else
+            word = self._colorLetter(letter, "#FF0000", word)
+         end
     end
 
-    print(self._writtenLetters, self._wrongKeys)
-    self._coloredWords[self._currentWordIndex] = _colorCurrentWord();
-    local finalString = ""
+    if #self._writtenLetters > #self._currentLetters then
+        for i = #self._currentLetters + 1, #self._writtenLetters do
+            local letter = self._writtenLetters[i]
+            word = self._colorLetter(letter, "#FF0000", word) --// mark red
+        end
+    end
+
+    self._coloredWords[self._currentWordIndex] = word --// sets the word as colored
+    return word
+end
+
+function TypeTester:GetAllWordsColored()
+    local words : string = ""
+    self:_PushCurrentWordAsColored();
 
     for _, word in ipairs(self._coloredWords) do
-        finalString = finalString.." "..word
+        --// colored words will be in order.
+        --// loop after this is everthing beyond what
+        --// the word(s) the player has already written.
+        words = words.." "..word
+        print(words)
     end
+
+    words = words.." "
     
     for i = self._currentWordIndex + 1, #self._words do
         local letter = self._words[i]
-        finalString = finalString.." "..'<font color="#797979">'..letter..'</font>'
+        words = self._colorLetter(letter.." ", "#797979", words)
     end
 
-    return finalString
+    return words
+end
+
+function TypeTester:Backspace()
+    self._currentLetterIndex = (self._currentLetterIndex > 0) and self._currentLetterIndex-1 or 0
+
+    if table.find(self._wrongKeys, #self._writtenLetters) then
+        table.remove(self._wrongKeys, #self._writtenLetters)
+    end
+
+    table.remove(self._writtenLetters, #self._writtenLetters)
+end
+
+function TypeTester:Spacebar()
+    self._currentLetterIndex = 0
+    self._currentWordIndex += 1
+    self._currentWord = self._words[self._currentWordIndex]
+
+    self._writtenLetters = {}
+    self._wrongKeys = {}
+    self:SplitCurrentWord();
+end
+
+function TypeTester:Write(key : string)
+    self._currentLetterIndex += 1
+    table.insert(self._writtenLetters, key)
+
+    if self._currentLetters[self._currentLetterIndex] ~= key then
+        print("isn't key", self._currentLetters[self._currentLetterIndex], self._currentLetterIndex, key)
+        table.insert(self._wrongKeys, self._currentLetterIndex);
+    end
 end
 
 function TypeTester:ProcessKey(key : string)
-    if key ~= " " and key ~= "backspace" then
-        self._currentLetterIndex += 1
-        table.insert(self._writtenLetters, key)
-    
-        if self._currentLetters[self._currentLetterIndex] ~= key then
-            print("isn't key", self._currentLetters[self._currentLetterIndex],self._currentLetterIndex, key)
-            table.insert(self._wrongKeys, self._currentLetterIndex);
-        end
+    if key == "Backspace" then
+        self:Backspace();
+    elseif key == "Space" then
+        self:Spacebar();
+    else
+        self:Write(key);
     end
 
-    if key == "backspace" then
-        self._currentLetterIndex = (self._currentLetterIndex > 0) and self._currentLetterIndex-1 or 0
-
-        if table.find(self._wrongKeys, #self._writtenLetters) then
-            table.remove(self._wrongKeys, #self._writtenLetters)
-        end
-
-        table.remove(self._writtenLetters, #self._writtenLetters)
-    end
-
-    if key == " " then
-        --// spacebar
-        self._currentLetterIndex = 0
-        self._currentWordIndex += 1
-        self._currentWord = self._words[self._currentWordIndex]
-
-        self._writtenLetters = {}
-        self._wrongKeys = {}
-        self:SplitCurrentWord();
-    end
-
-    local text = self:GetColoredString()
+    local text = self:GetAllWordsColored()
     self:ApplyText(text);
 end
+
+--TODO: Have to make it so you can go back to a previous word if the previous word wasn't completed.
 
 function TypeTester:Init()
     self:GenerateWords()
@@ -176,20 +195,19 @@ function TypeTester:Init()
 
     self.connection = UserInputService.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.Keyboard then
+            local key = UserInputService:GetStringForKeyCode(input.KeyCode):lower();
+
 			if not self.inSession then
                 self:StartSession();
             end
 
-            local key = UserInputService:GetStringForKeyCode(input.KeyCode):lower();
-
             if input.KeyCode == Enum.KeyCode.Backspace then
-                key = "backspace"
-            end
-
-            if key == " " and input.KeyCode ~= Enum.KeyCode.Space then
+                key = "Backspace"
+            elseif input.KeyCode == Enum.KeyCode.Space then
+                key = "Space"
+            elseif key == " " then
                 return
             end
-
             self:ProcessKey(key);
 		end
 	end)
