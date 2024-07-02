@@ -1,3 +1,5 @@
+local LocalizationService = game:GetService("LocalizationService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
 local TypeTester = {}
@@ -13,6 +15,7 @@ function TypeTester.new(UI)
     self.wordsAmount = 30
     
     self._words = {}
+    self._wordLabels = {}
     self._currentWord = nil
 
     self._currentLetters = {}
@@ -49,6 +52,13 @@ function TypeTester:SplitCurrentWord()
     end
 end
 
+function TypeTester._CreateNewRow(UIElement : Frame, frame : ScrollingFrame)
+    local row = UIElement:Clone()
+    row.Parent = frame
+
+    return row
+end
+
 function TypeTester:GenerateWords()
     for index = 1, self.wordsAmount do
         local randomWord = self.wordsPool[math.random(#self.wordsPool)]
@@ -63,6 +73,32 @@ function TypeTester:GenerateWords()
         end
 
         self._wordsLength += randomWord:len();
+    end
+
+    local elements = ReplicatedStorage.UI_Elements
+    local container = self.UI.Background.Container.TextHolder
+
+    local _currentRow = self._CreateNewRow(elements.Row, container) 
+    for _index, word in ipairs(self._words) do
+        local _rowListLayout = _currentRow.UIListLayout
+        local _rowAbsolute = _currentRow.AbsoluteSize
+
+        local totalOffset = (#_currentRow:GetChildren()-1) * _rowListLayout.Padding.Offset
+        local remainingRowSize = (_rowAbsolute - _rowListLayout.AbsoluteContentSize).X
+
+        local label = elements.TextLabel:Clone()
+        label.Parent = _currentRow
+        label.Text = word
+
+        if label.AbsoluteSize.X + totalOffset > remainingRowSize then
+            _currentRow = self._CreateNewRow(elements.Row, container) 
+            label.Parent = _currentRow
+        end
+
+        local labelScaleSize = label.AbsoluteSize / _currentRow.AbsoluteSize
+        label.Size = UDim2.fromScale(labelScaleSize.X, 1)
+
+        table.insert(self._wordLabels, label)
     end
 end
 
@@ -253,7 +289,7 @@ function TypeTester:ProcessKey(key : string)
     self:ApplyText(text);
 end
 
---TODO: Have to make it so you can go back to a previous word if the previous word wasn't completed.
+--TODO: be able to go back on a word that you haven't finished yet, cus when you press
 
 function TypeTester:Init()
     self:GenerateWords()
