@@ -137,12 +137,15 @@ function TypeTester:GetAllWordsColored()
 
     for _, word in ipairs(self._coloredWords) do
         --// colored words will be in order.
-        --// loop after this is everthing beyond what
+        --// loop after this is everything beyond what
         --// the word(s) the player has already written.
         words = words.." "..word
     end
     words = words.." "
     
+    --// going through the table of all of the words that we've generated
+    --// starting at the next index of the current word we're on and coloring
+    --// them gray, to indicate that we haven't gotten onto those words yet.
     for i = self._currentWordIndex + 1, #self._words do
         local letter = self._words[i]
         words = self._colorLetter(letter.." ", "#797979", words)
@@ -150,6 +153,8 @@ function TypeTester:GetAllWordsColored()
 
     return words
 end
+
+--TODO: make it so you can go back to words that you haven't fully completed but skipped.
 
 function TypeTester:Backspace()
     local _previousIndex = tostring(tostring(self._currentWordIndex-1))
@@ -174,8 +179,6 @@ function TypeTester:Backspace()
         self:SplitCurrentWord();
         self._currentLetterIndex = #self._writtenLetters
         self._currentWrongKeys = _previousWordMistakes
-
-        --//self:_PushCurrentWordAsColored()
     end
 
     local _isMistakeLetter = table.find(
@@ -184,9 +187,14 @@ function TypeTester:Backspace()
     )
 
     if _isMistakeLetter then
+        --// if the deleted was a wrong letter/mistake,
+        --// we delete it from the table which holds the wrong keys
+        --// since they've deleted it, ultimately fixing it.
         table.remove(self._currentWrongKeys, _isMistakeLetter)
     end
 
+    --// remove the current letter from the written letters because it's now deleted,
+    --// and go back a letter from where it is now.
     table.remove(self._writtenLetters, #self._writtenLetters)
     self._currentLetterIndex = (self._currentLetterIndex > 0) and self._currentLetterIndex-1 or 0
 end
@@ -198,6 +206,9 @@ function TypeTester:Spacebar()
         return
     end
 
+    --// once the player decides to move on to the next word,
+    --// if the current word has a mistake in it, we save the mistake
+    --// into a list containing the mistakes made in their respective words.
     local _currentWordIndex = tostring(self._currentWordIndex)
     if #self._currentWrongKeys > 0 then
         self._previousWrongKeys[_currentWordIndex] = self._currentWrongKeys
@@ -205,9 +216,13 @@ function TypeTester:Spacebar()
         self._previousWrongKeys[_currentWordIndex] = nil;
     end
 
-    self._previousWrittenLetters[_currentWordIndex] = self._writtenLetters --// doesnt need to be string
+    --// saves all of the letters written in the current word (right ones AND wrong ones)
+    --// in a table that contains what the player wrote in each word, to be able to see
+    --// where they made mistakes and which ones they've finished in a easy way.
+    self._previousWrittenLetters[_currentWordIndex] = self._writtenLetters --// (doesnt need to be string?)
     self._currentLetterIndex = 0
     
+    --// moving to the next letter and resetting variables
     self._currentWordIndex += 1
     self._currentWord = self._words[self._currentWordIndex]
 
