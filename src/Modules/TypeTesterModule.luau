@@ -100,18 +100,27 @@ function TypeTester:_PushCurrentWordAsColored()
 
     for index, letter in ipairs(self._currentLetters) do
         if #self._writtenLetters < index then
+            --// if amount written is less than the amount of letters the word has,
+            --// color it gray, as the player has not yet gotten to that part of the word,
+            --// and continue on to the next cycle to color the remaining ones gray.
             word = self._colorLetter(letter, "#797979", word)
             continue
         end
 
         if not table.find(self._currentWrongKeys, index) then
+            --// if the current letter the loop is on has been located in
+            --// the list of the invalid letters that the player has entered,
+            --// it colors the letter red.
             word = self._colorLetter(letter, "#FFFFFF", word)
          else
+            --// else, color it white as it's the correct letter.
             word = self._colorLetter(letter, "#FF0000", word)
          end
     end
 
     if #self._writtenLetters > #self._currentLetters then
+        --// in the case where the player has written more letters than the word requires,
+        --// the surplus letters will be considered as wrong and marked red.
         for i = #self._currentLetters + 1, #self._writtenLetters do
             local letter = self._writtenLetters[i]
             word = self._colorLetter(letter, "#FF0000", word) --// mark red
@@ -143,39 +152,52 @@ function TypeTester:GetAllWordsColored()
 end
 
 function TypeTester:Backspace()
-
     local _previousIndex = tostring(tostring(self._currentWordIndex-1))
     local _previousWordMistakes = self._previousWrongKeys[_previousIndex]
 
     if self._currentLetterIndex == 0 and _previousWordMistakes then
-        print("aaa", self._writtenLetters, self._previousWrongKeys)
         --// if you're on the first letter of the word and press backspace
         --// and you've made a mistake on the previous word
-        self._currentWordIndex -= 1 --// go back to the previous word
+
+        --// remove the current word from the list of the list of
+        --// colored words in the coloredWords table, to tell the code
+        --// to treat it as if the player never wrote that word.
+        self._coloredWords[self._currentWordIndex] = nil;
+
+        --// go back to the previous word, starting at the latest letter.
+        self._currentWordIndex -= 1
         self._currentWord = self._words[self._currentWordIndex]
 
         local _previousWrittenLetters = self._previousWrittenLetters[_previousIndex]
-        print(self._previousWrittenLetters, _previousWrittenLetters)
+        self._writtenLetters = _previousWrittenLetters
 
         self:SplitCurrentWord();
-        self._currentLetterIndex = #self._currentLetters
+        self._currentLetterIndex = #self._writtenLetters
         self._currentWrongKeys = _previousWordMistakes
-        self._writtenLetters = _previousWrittenLetters
-        return
+
+        --//self:_PushCurrentWordAsColored()
     end
 
-    local _isMistakeLetter = table.find(self._currentWrongKeys, self._currentLetterIndex)
+    local _isMistakeLetter = table.find(
+        self._currentWrongKeys,
+        self._currentLetterIndex
+    )
+
     if _isMistakeLetter then
         table.remove(self._currentWrongKeys, _isMistakeLetter)
     end
 
-    table.remove(self._writtenLetters, self._currentLetterIndex)
-    print(self._writtenLetters)
+    table.remove(self._writtenLetters, #self._writtenLetters)
     self._currentLetterIndex = (self._currentLetterIndex > 0) and self._currentLetterIndex-1 or 0
 end
 
 function TypeTester:Spacebar()
-    
+    if #self._writtenLetters == 0 then
+        --// the player must write at least 1 letter of the word
+        --// before going to the next word.
+        return
+    end
+
     local _currentWordIndex = tostring(self._currentWordIndex)
     if #self._currentWrongKeys > 0 then
         self._previousWrongKeys[_currentWordIndex] = self._currentWrongKeys
