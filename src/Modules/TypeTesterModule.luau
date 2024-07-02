@@ -52,11 +52,50 @@ function TypeTester:SplitCurrentWord()
     end
 end
 
-function TypeTester._CreateNewRow(UIElement : Frame, frame : ScrollingFrame)
-    local row = UIElement:Clone()
-    row.Parent = frame
 
-    return row
+function TypeTester:DisplayWords()
+    local elements = ReplicatedStorage.UI_Elements
+    local container = self.UI.Background.Container.TextHolder
+
+    local function _createNewRow()
+        local row = elements.Row:Clone()
+        row.Parent = container
+        return row
+    end
+
+    local _currentRow = _createNewRow()
+    for _, word in ipairs(self._words) do
+        local _rowListLayout = _currentRow.UIListLayout
+        local _rowAbsolute = _currentRow.AbsoluteSize
+
+        --// calculate the amount of offset created by the padding between words,
+        --// and calculate the amount of space we have left in the row.
+        local totalOffset = (#_currentRow:GetChildren()-1) * _rowListLayout.Padding.Offset
+        local remainingRowSize = (_rowAbsolute - _rowListLayout.AbsoluteContentSize).X
+
+        --// create new textlabel and set the parent to the current row,
+        --// set text afterwards as AutomaticSize on the X axis might not set.
+        local label = elements.TextLabel:Clone()
+        label.Parent = _currentRow
+        label.Text = word
+
+        if label.AbsoluteSize.X + totalOffset > remainingRowSize then
+            --// if the new word goes outside of the bounds of the current row,
+            --// start a new row.
+            _currentRow = _createNewRow() 
+            label.Parent = _currentRow
+        end
+
+        --// convert size of the label to scale as AutomaticSize is in pixels,
+        --// Y axis is 1 to fill the full height of the row by default.
+        local labelScaleSize = label.AbsoluteSize / _currentRow.AbsoluteSize
+        label.Size = UDim2.fromScale(labelScaleSize.X, 1)
+
+        --// store the textlabel in an array where we can easily retrieve it,
+        --// and not have to first retrieve what row it is, as each index of the wordLabels corresponds to
+        --// each word of self._words.
+        table.insert(self._wordLabels, label)
+    end
 end
 
 function TypeTester:GenerateWords()
@@ -73,32 +112,6 @@ function TypeTester:GenerateWords()
         end
 
         self._wordsLength += randomWord:len();
-    end
-
-    local elements = ReplicatedStorage.UI_Elements
-    local container = self.UI.Background.Container.TextHolder
-
-    local _currentRow = self._CreateNewRow(elements.Row, container) 
-    for _index, word in ipairs(self._words) do
-        local _rowListLayout = _currentRow.UIListLayout
-        local _rowAbsolute = _currentRow.AbsoluteSize
-
-        local totalOffset = (#_currentRow:GetChildren()-1) * _rowListLayout.Padding.Offset
-        local remainingRowSize = (_rowAbsolute - _rowListLayout.AbsoluteContentSize).X
-
-        local label = elements.TextLabel:Clone()
-        label.Parent = _currentRow
-        label.Text = word
-
-        if label.AbsoluteSize.X + totalOffset > remainingRowSize then
-            _currentRow = self._CreateNewRow(elements.Row, container) 
-            label.Parent = _currentRow
-        end
-
-        local labelScaleSize = label.AbsoluteSize / _currentRow.AbsoluteSize
-        label.Size = UDim2.fromScale(labelScaleSize.X, 1)
-
-        table.insert(self._wordLabels, label)
     end
 end
 
@@ -293,7 +306,7 @@ end
 
 function TypeTester:Init()
     self:GenerateWords()
-    self:ApplyText(self._fullString);
+    self:DisplayWords();
 
     local function _onInput(input)
         local key = UserInputService:GetStringForKeyCode(input.KeyCode):lower();
