@@ -15,15 +15,18 @@ function TypeTester.new(UI)
     self.wordsAmount = 30
     
     self._words = {}
-    self._wordLabels = {}
     self._currentWord = nil
+
+    self._rows = {}
+    self._wordLabels = {}
 
     self._currentLetters = {}
     self._currentWrongKeys = {}
+
     self._previousWrongKeys = {}
     self._previousWrittenLetters = {}
+
     self._writtenLetters = {}
-    self._coloredWords = {}
 
     self._currentWordIndex = 1
     self._currentLetterIndex = 0
@@ -52,37 +55,98 @@ function TypeTester:SplitCurrentWord()
     end
 end
 
+function TypeTester._checkIfFitInRow(word : TextLabel, row)
+    local x = word.AbsolutePosition.X + word.AbsoluteSize.X + row.UIListLayout.Padding.Offset
+    local y = row.AbsolutePosition.X + row.AbsoluteSize.X
+    return (y - x) >= word.AbsoluteSize.X
+end
 
-function TypeTester:DisplayWords()
-    local elements = ReplicatedStorage.UI_Elements
-    local container = self.UI.Background.Container.TextHolder
+function TypeTester:RecalculateRows()
+    local label = self._wordLabels[self._currentWordIndex]
+    local currentRow = self._rows[tonumber(label.Parent.Name)]
+    local nextRow = self._rows[tonumber(label.Parent.Name)+1]
 
-    local function _createNewRow()
-        local row = elements.Row:Clone()
-        row.Parent = container
-        return row
+    local function _getLastWord(row)
+        local children = row:GetChildren()
+        return children[#children]
     end
 
-    local _currentRow = _createNewRow()
-    for _, word in ipairs(self._words) do
+    local function _deleteOtherRows()
+        for index, row in self._rows do
+            if row ~= currentRow and row.LayoutOrder > currentRow.LayoutOrder then
+                row:Destroy();
+                self._rows[index] = nil
+            end
+        end
+    end
+
+    local function _deleteOtherWordsOfRow()
+        local remainingWords = (#currentRow:GetChildren()-1) - self._currentWordIndex
+
+        for _, word in currentRow:GetChildren() do
+            if word:IsA("TextLabel") and word.LayoutOrder > label.LayoutOrder then
+                word:Destroy();
+            end
+        end
+    end
+
+    print(nextRow, currentRow)
+    
+    if not self._checkIfFitInRow(_getLastWord(currentRow), currentRow) 
+    or nextRow and self._checkIfFitInRow(nextRow:GetChildren()[2], nextRow) then
+        _deleteOtherRows()
+        _deleteOtherWordsOfRow()
+        self:DisplayWords(self._currentWordIndex+1, currentRow)
+    end
+end
+
+function TypeTester:_createNewRow()
+    local container = self.UI.Background.Container.TextHolder
+
+    local row = ReplicatedStorage.UI_Elements.Row:Clone()
+    row.LayoutOrder = #self._rows + 1
+    row.Name = #self._rows + 1
+    row.Parent = container
+
+    table.insert(self._rows, row)
+    return row
+end
+
+function TypeTester:_GetRowSizeInfo(row)
+    local _rowListLayout = row.UIListLayout
+
+    --// calculate the amount of offset created by the padding between words,
+    --// and calculate the amount of space we have left in the row.
+    local totalOffset = (#row:GetChildren()-1) * _rowListLayout.Padding.Offset
+    local remainingRowSize = (row.AbsoluteSize - _rowListLayout.AbsoluteContentSize).X
+
+    return totalOffset, remainingRowSize
+end
+
+function TypeTester:DisplayWords(startIndex : number?, row : Frame?)
+    local elements = ReplicatedStorage.UI_Elements
+    local container = self.UI.Background.Container.TextHolder
+    local _currentRow = row or self:_createNewRow()
+
+    for i = startIndex or 1, #self._words do
+        local word = self._words[i]
+            
         local _rowListLayout = _currentRow.UIListLayout
         local _rowAbsolute = _currentRow.AbsoluteSize
-
-        --// calculate the amount of offset created by the padding between words,
-        --// and calculate the amount of space we have left in the row.
-        local totalOffset = (#_currentRow:GetChildren()-1) * _rowListLayout.Padding.Offset
-        local remainingRowSize = (_rowAbsolute - _rowListLayout.AbsoluteContentSize).X
+        local totalOffset, remainingRowSize = self:_GetRowSizeInfo(_currentRow)
 
         --// create new textlabel and set the parent to the current row,
         --// set text afterwards as AutomaticSize on the X axis might not set.
         local label = elements.TextLabel:Clone()
+        label.LayoutOrder = i
+        label.Name = word  
         label.Parent = _currentRow
         label.Text = word
 
-        if label.AbsoluteSize.X + totalOffset > remainingRowSize then
+        if not self._checkIfFitInRow(label, _currentRow) then
             --// if the new word goes outside of the bounds of the current row,
             --// start a new row.
-            _currentRow = _createNewRow() 
+            _currentRow = self:_createNewRow() 
             label.Parent = _currentRow
         end
 
@@ -94,7 +158,7 @@ function TypeTester:DisplayWords()
         --// store the textlabel in an array where we can easily retrieve it,
         --// and not have to first retrieve what row it is, as each index of the wordLabels corresponds to
         --// each word of self._words.
-        table.insert(self._wordLabels, label)
+        self._wordLabels[i] = label;
     end
 end
 
@@ -144,7 +208,7 @@ function TypeTester._colorLetter(letter : string, color, joinWith : string?)
     return `{joinWith or ""}<font color="{color}">{letter}</font>`
 end
 
-function TypeTester:_PushCurrentWordAsColored()
+function TypeTester:_GetCurrentWordAsColored()
     local word : string = ""
 
     for index, letter in ipairs(self._currentLetters) do
@@ -174,33 +238,9 @@ function TypeTester:_PushCurrentWordAsColored()
             local letter = self._writtenLetters[i]
             word = self._colorLetter(letter, "#FF0000", word) --// mark red
         end
-    end
+     end
 
-    self._coloredWords[self._currentWordIndex] = word --// sets the word as colored
     return word
-end
-
-function TypeTester:GetAllWordsColored()
-    local words : string = ""
-    self:_PushCurrentWordAsColored();
-
-    for _, word in ipairs(self._coloredWords) do
-        --// colored words will be in order.
-        --// loop after this is everything beyond what
-        --// the word(s) the player has already written.
-        words = words.." "..word
-    end
-    words = words.." "
-    
-    --// going through the table of all of the words that we've generated
-    --// starting at the next index of the current word we're on and coloring
-    --// them gray, to indicate that we haven't gotten onto those words yet.
-    for i = self._currentWordIndex + 1, #self._words do
-        local letter = self._words[i]
-        words = self._colorLetter(letter.." ", "#797979", words)
-    end
-
-    return words
 end
 
 --TODO: make it so you can go back to words that you haven't fully completed but skipped.
@@ -209,14 +249,9 @@ function TypeTester:Backspace()
     local _previousIndex = tostring(tostring(self._currentWordIndex-1))
     local _previousWordMistakes = self._previousWrongKeys[_previousIndex]
 
+    --// if you're on the first letter of the word and press backspace
+    --// and you've made a mistake on the previous word
     if self._currentLetterIndex == 0 and _previousWordMistakes then
-        --// if you're on the first letter of the word and press backspace
-        --// and you've made a mistake on the previous word
-
-        --// remove the current word from the list of the list of
-        --// colored words in the coloredWords table, to tell the code
-        --// to treat it as if the player never wrote that word.
-        self._coloredWords[self._currentWordIndex] = nil;
 
         --// go back to the previous word, starting at the latest letter.
         self._currentWordIndex -= 1
@@ -269,11 +304,12 @@ function TypeTester:Spacebar()
     --// in a table that contains what the player wrote in each word, to be able to see
     --// where they made mistakes and which ones they've finished in a easy way.
     self._previousWrittenLetters[_currentWordIndex] = self._writtenLetters --// (doesnt need to be string?)
-    self._currentLetterIndex = 0
     
     --// moving to the next letter and resetting variables
     self._currentWordIndex += 1
+    self._currentLetterIndex = 0
     self._currentWord = self._words[self._currentWordIndex]
+    
 
     self._writtenLetters = {}
     self._currentWrongKeys = {}
@@ -298,8 +334,10 @@ function TypeTester:ProcessKey(key : string)
         self:Write(key);
     end
 
-    local text = self:GetAllWordsColored()
-    self:ApplyText(text);
+    local currentLabel = self._wordLabels[self._currentWordIndex]
+    currentLabel.Text = self:_GetCurrentWordAsColored() 
+    
+    self:RecalculateRows();
 end
 
 --TODO: be able to go back on a word that you haven't finished yet, cus when you press
