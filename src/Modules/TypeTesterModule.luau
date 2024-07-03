@@ -1,4 +1,4 @@
-local LocalizationService = game:GetService("LocalizationService")
+local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
@@ -31,7 +31,6 @@ function TypeTester.new(UI)
     self._currentWordIndex = 1
     self._currentLetterIndex = 0
 
-    self._fullString = ""
     self._wordsLength = 0
 
     self.UI = UI
@@ -62,9 +61,11 @@ function TypeTester._checkIfFitInRow(word : TextLabel, row)
 end
 
 function TypeTester:RecalculateRows()
-    local label = self._wordLabels[self._currentWordIndex]
-    local currentRow = self._rows[tonumber(label.Parent.Name)]
-    local nextRow = self._rows[tonumber(label.Parent.Name)+1]
+    local textLabel = self._wordLabels[self._currentWordIndex]
+    local rowNumber = tonumber(textLabel.Parent.Name)
+
+    local currentRow = self._rows[rowNumber]
+    local nextRow = self._rows[rowNumber+1]
 
     local function _getLastWord(row)
         local children = row:GetChildren()
@@ -84,13 +85,11 @@ function TypeTester:RecalculateRows()
         local remainingWords = (#currentRow:GetChildren()-1) - self._currentWordIndex
 
         for _, word in currentRow:GetChildren() do
-            if word:IsA("TextLabel") and word.LayoutOrder > label.LayoutOrder then
+            if word:IsA("TextLabel") and word.LayoutOrder > textLabel.LayoutOrder then
                 word:Destroy();
             end
         end
     end
-
-    print(nextRow, currentRow)
     
     if not self._checkIfFitInRow(_getLastWord(currentRow), currentRow) 
     or nextRow and self._checkIfFitInRow(nextRow:GetChildren()[2], nextRow) then
@@ -168,13 +167,9 @@ function TypeTester:GenerateWords()
         table.insert(self._words, randomWord)
 
         if index == 1 then
-            self._fullString = self._fullString..randomWord
             self._currentWord = randomWord
             self:SplitCurrentWord();
-        else
-            self._fullString = self._fullString.." "..randomWord
         end
-
         self._wordsLength += randomWord:len();
     end
 end
@@ -281,6 +276,19 @@ function TypeTester:Backspace()
     --// and go back a letter from where it is now.
     table.remove(self._writtenLetters, #self._writtenLetters)
     self._currentLetterIndex = (self._currentLetterIndex > 0) and self._currentLetterIndex-1 or 0
+end
+
+function TypeTester:AlignCarret()
+    local function calculatePosition()
+        local currentLabel = self.wordLabels[self._currentWordIndex]
+        local letterSize = currentLabel.Size.X.scale / currentLabel.Text:len()
+       
+        return 
+    end
+    
+    if not self._carret then 
+        self._carret = ReplicatedStorage.UI_Elements.Carret:Clone()
+    end
 end
 
 function TypeTester:Spacebar()
