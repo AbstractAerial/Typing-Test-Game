@@ -1,3 +1,4 @@
+local TextService = game:GetService("TextService")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
@@ -56,8 +57,8 @@ end
 
 function TypeTester._checkIfFitInRow(word : TextLabel, row)
     local x = word.AbsolutePosition.X + word.AbsoluteSize.X + row.UIListLayout.Padding.Offset
-    local y = row.AbsolutePosition.X + row.AbsoluteSize.X
-    return (y - x) >= word.AbsoluteSize.X
+    local y = row.AbsolutePosition.X + row.AbsoluteSize.X - 2 --// -2 for the size of the caret.
+    return (y - x) >= word.AbsoluteSize.X 
 end
 
 function TypeTester:RecalculateRows()
@@ -238,7 +239,23 @@ function TypeTester:_GetCurrentWordAsColored()
     return word
 end
 
---TODO: make it so you can go back to words that you haven't fully completed but skipped.
+function TypeTester:AlignCaret()
+    local currentLabel = self._wordLabels[self._currentWordIndex]
+
+    local function calculateX()
+        local absoluteSizeX = currentLabel.AbsoluteSize.X
+        local absolutePosX = currentLabel.AbsolutePosition.X
+        local sizePerLetter = absoluteSizeX / self._words[self._currentWordIndex]:len()
+        return (sizePerLetter * self._currentLetterIndex)  / absoluteSizeX
+    end
+    
+    if not self._caret then 
+        self._caret = ReplicatedStorage.UI_Elements.Caret:Clone()
+    end
+
+    self._caret.Position = UDim2.fromScale(calculateX(), .5) --//UDim2.new(calculateX(), 0, .5, 0)
+    self._caret.Parent = currentLabel
+end
 
 function TypeTester:Backspace()
     local _previousIndex = tostring(tostring(self._currentWordIndex-1))
@@ -276,19 +293,6 @@ function TypeTester:Backspace()
     --// and go back a letter from where it is now.
     table.remove(self._writtenLetters, #self._writtenLetters)
     self._currentLetterIndex = (self._currentLetterIndex > 0) and self._currentLetterIndex-1 or 0
-end
-
-function TypeTester:AlignCarret()
-    local function calculatePosition()
-        local currentLabel = self.wordLabels[self._currentWordIndex]
-        local letterSize = currentLabel.Size.X.scale / currentLabel.Text:len()
-       
-        return 
-    end
-    
-    if not self._carret then 
-        self._carret = ReplicatedStorage.UI_Elements.Carret:Clone()
-    end
 end
 
 function TypeTester:Spacebar()
@@ -346,6 +350,7 @@ function TypeTester:ProcessKey(key : string)
     currentLabel.Text = self:_GetCurrentWordAsColored() 
     
     self:RecalculateRows();
+    self:AlignCaret();
 end
 
 --TODO: be able to go back on a word that you haven't finished yet, cus when you press
